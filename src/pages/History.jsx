@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { ArrowLeft, CalendarDays, Filter, Trash2 } from "lucide-react";
+import { ArrowLeft, CalendarDays } from "lucide-react";
 import { getTransactions, deleteTransaction } from "../services/api";
+
 import Table from "../components/Table";
+import MonthlyIncomeChart from "../components/MonthlyIncomeChart";
+import MonthlyProfitCard from "../components/MonthlyProfitCard";
+import TransactionFilters from "../components/TransactionFilters";
 
 export default function History() {
   const navigate = useNavigate();
@@ -12,14 +15,10 @@ export default function History() {
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
 
-  // 🔥 FILTER TAMBAHAN
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [month, setMonth] = useState("");
 
-  // =========================
-  // FETCH DATA
-  // =========================
   useEffect(() => {
     fetchData();
   }, []);
@@ -28,13 +27,9 @@ export default function History() {
     try {
       const res = await getTransactions();
 
-      if (Array.isArray(res)) {
-        setData(res);
-      } else if (Array.isArray(res?.data)) {
-        setData(res.data);
-      } else {
-        setData([]);
-      }
+      if (Array.isArray(res)) setData(res);
+      else if (Array.isArray(res?.data)) setData(res.data);
+      else setData([]);
     } catch (err) {
       console.log(err);
       setData([]);
@@ -43,25 +38,22 @@ export default function History() {
     }
   };
 
-  // =========================
-  // DELETE
-  // =========================
   const handleDelete = async (id) => {
     if (!confirm("Yakin mau hapus transaksi ini?")) return;
 
     try {
       await deleteTransaction(id);
-      setData(data.filter((item) => item.id !== id));
+      setData((prev) => prev.filter((item) => item.ID !== id));
     } catch (err) {
       alert("Gagal hapus!");
     }
   };
 
   // =========================
-  // FILTER DATA
+  // FILTER LOGIC
   // =========================
   const filteredData = data.filter((item) => {
-    const date = new Date(item.tanggal);
+    const date = new Date(item.Tanggal || item.tanggal);
     const now = new Date();
 
     if (filter === "daily") {
@@ -79,15 +71,10 @@ export default function History() {
       return date.getFullYear() === now.getFullYear();
     }
 
-    // 🔥 FILTER RANGE
     if (filter === "range" && startDate && endDate) {
-      return (
-        date >= new Date(startDate) &&
-        date <= new Date(endDate)
-      );
+      return date >= new Date(startDate) && date <= new Date(endDate);
     }
 
-    // 🔥 FILTER PER BULAN CUSTOM
     if (filter === "month" && month) {
       const [y, m] = month.split("-");
       return (
@@ -101,8 +88,7 @@ export default function History() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black text-white p-4">
-
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-6xl mx-auto">
 
         {/* HEADER */}
         <div className="flex items-center justify-between bg-gray-900 border border-gray-800 p-4 rounded-2xl">
@@ -119,57 +105,36 @@ export default function History() {
           </button>
         </div>
 
-        {/* FILTER BUTTON */}
-        <div className="flex gap-2 mt-4 flex-wrap">
-          {["all", "daily", "monthly", "yearly", "range", "month"].map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-3 py-2 rounded-xl text-sm ${
-                filter === f ? "bg-blue-600" : "bg-gray-800"
-              }`}
-            >
-              {f}
-            </button>
-          ))}
-        </div>
+        {/* FILTER COMPONENT */}
+        <TransactionFilters
+          filter={filter}
+          setFilter={setFilter}
+          startDate={startDate}
+          setStartDate={setStartDate}
+          endDate={endDate}
+          setEndDate={setEndDate}
+          month={month}
+          setMonth={setMonth}
+        />
 
-        {/* FILTER INPUT */}
-        {filter === "range" && (
-          <div className="flex gap-2 mt-3">
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="bg-gray-800 p-2 rounded"
-            />
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="bg-gray-800 p-2 rounded"
-            />
+        {/* DASHBOARD */}
+        <div className="mt-5 flex flex-col lg:flex-row gap-4">
+
+          {/* LEFT - TABLE */}
+          <div className="w-full lg:w-[70%]">
+            {loading ? (
+              <p className="text-center text-gray-400">Loading...</p>
+            ) : (
+              <Table data={filteredData} onDelete={handleDelete} />
+            )}
           </div>
-        )}
 
-        {filter === "month" && (
-          <div className="mt-3">
-            <input
-              type="month"
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-              className="bg-gray-800 p-2 rounded"
-            />
+          {/* RIGHT - PANEL */}
+          <div className="w-full lg:w-[30%] flex flex-col gap-4">
+            <MonthlyProfitCard data={data} />
+            <MonthlyIncomeChart data={data} />
           </div>
-        )}
 
-        {/* TABLE */}
-        <div className="mt-4">
-          {loading ? (
-            <p className="text-center text-gray-400">Loading...</p>
-          ) : (
-            <Table data={filteredData} onDelete={handleDelete} />
-          )}
         </div>
 
       </div>
